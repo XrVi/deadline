@@ -10,14 +10,6 @@ const tasksList = document.getElementById('tasksList');
 // 任务列表，用于检测重复任务
 let tasks = JSON.parse(localStorage.getItem('tasks')) || {};
 
-// 页面加载时恢复任务
-window.onload = function() {
-    Object.keys(tasks).forEach(taskName => {
-        const deadline = new Date(tasks[taskName]);
-        createTask(taskName, deadline);
-    });
-};
-
 // 打开弹窗
 newTaskBtn.onclick = function() {
     taskModal.style.display = 'block';
@@ -45,11 +37,13 @@ addTaskBtn.onclick = function() {
         return;
     }
 
-    // 创建任务
-    createTask(taskName, deadline);
+    const startTime = new Date(); // 任务创建时间
 
-    // 记录任务到localStorage
-    tasks[taskName] = deadline;
+    // 创建任务
+    createTask(taskName, deadline, startTime);
+
+    // 记录任务并保存到 localStorage
+    tasks[taskName] = { deadline: deadline.toISOString(), startTime: startTime.toISOString() };
     localStorage.setItem('tasks', JSON.stringify(tasks));
 
     // 关闭弹窗并清空输入框
@@ -59,7 +53,7 @@ addTaskBtn.onclick = function() {
 };
 
 // 创建任务函数
-function createTask(name, deadline) {
+function createTask(name, deadline, startTime) {
     const taskDiv = document.createElement('div');
     taskDiv.className = 'task';
 
@@ -72,7 +66,7 @@ function createTask(name, deadline) {
 
     const progressDiv = document.createElement('div');
     progressDiv.className = 'progress';
-    progressDiv.setAttribute('start-time', new Date());
+    progressDiv.setAttribute('start-time', startTime);
 
     progressBarDiv.appendChild(progressDiv);
 
@@ -81,11 +75,11 @@ function createTask(name, deadline) {
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-task';
-    deleteBtn.textContent = 'X';
+    deleteBtn.textContent = 'X'; // 删除按钮改为 X
     deleteBtn.onclick = function() {
         taskDiv.remove();
-        delete tasks[name];
-        localStorage.setItem('tasks', JSON.stringify(tasks)); // 更新localStorage
+        delete tasks[name]; // 删除任务记录
+        localStorage.setItem('tasks', JSON.stringify(tasks)); // 更新 localStorage
     };
 
     taskDiv.appendChild(taskNameDiv);
@@ -98,14 +92,15 @@ function createTask(name, deadline) {
     updateTaskProgress(deadline, progressDiv, timeLeftDiv);
     setInterval(() => {
         updateTaskProgress(deadline, progressDiv, timeLeftDiv);
-    }, 50);
+    }, 10); // 每10毫秒更新以显示微秒
 }
 
 // 更新任务进度
 function updateTaskProgress(deadline, progressDiv, timeLeftDiv) {
     const now = new Date();
     const totalTime = deadline - now;
-    const totalDuration = deadline - new Date(progressDiv.getAttribute('start-time'));
+    const startTime = new Date(progressDiv.getAttribute('start-time'));
+    const totalDuration = deadline - startTime;
     const percentage = Math.max((totalTime / totalDuration) * 100, 0);
 
     // 动态设置进度条宽度，保持任务过期后位置不变
@@ -126,15 +121,23 @@ function updateTaskProgress(deadline, progressDiv, timeLeftDiv) {
     const hoursLeft = String(Math.floor((totalTime / (1000 * 60 * 60)) % 24)).padStart(2, '0');
     const minutesLeft = String(Math.floor((totalTime / (1000 * 60)) % 60)).padStart(2, '0');
     const secondsLeft = String(Math.floor((totalTime / 1000) % 60)).padStart(2, '0');
-    const millisecondsLeft = String(Math.floor((totalTime % 1000) / 10)).padStart(2, '0');
+    const millisecondsLeft = String(Math.floor((totalTime % 1000) / 10)).padStart(2, '0'); // 微秒
 
     // 设置时间文本
-    timeLeftDiv.innerHTML = `${hoursLeft}:${minutesLeft}:${secondsLeft}<span class="milliseconds">${millisecondsLeft}</span>`;
+    timeLeftDiv.innerHTML = `${hoursLeft}:${minutesLeft}:${secondsLeft}<span class="milliseconds">${millisecondsLeft}</span>`; // 微秒放在后面
 
     // 处理过期任务
     if (totalTime <= 0) {
-        timeLeftDiv.innerHTML = 'Expired';
-        timeLeftDiv.style.color = 'red';
-        progressDiv.style.backgroundColor = 'red';
+        timeLeftDiv.innerHTML = 'Expired'; // 改为 "Expired"
+        timeLeftDiv.style.color = 'red'; // 红色显示
+        progressDiv.style.backgroundColor = 'red'; // 只改变颜色
     }
 }
+
+// 页面加载时，从 localStorage 中恢复任务
+window.onload = function() {
+    Object.keys(tasks).forEach(name => {
+        const task = tasks[name];
+        createTask(name, new Date(task.deadline), new Date(task.startTime));
+    });
+};
